@@ -12,6 +12,6 @@ class Exception_InvalidParams extends \JSON_RPC\Exception {
 	 * @param mixed|null $data
 	 */
 	public function __construct($data=null){
-		parent::__construct("Invalid params", -32602, $data);
+		parent::__construct("Invalid params.", -32602, $data);
 	}
 }

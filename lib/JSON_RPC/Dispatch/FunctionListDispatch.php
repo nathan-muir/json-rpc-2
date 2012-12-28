@@ -64,14 +64,14 @@ class FunctionListDispatch implements DispatchInterface {
 		$newArguments = array();
 		if (is_object($arguments)){ // associative list of parameter names and their values
 			// get a list of parameters, and compare against provided arguments
-			$additionalArgs = array_diff(array_map(function(\ReflectionParameter $p) { return $p->getName(); }, $parameters), array_keys($arguments));
+			$additionalArgs = array_diff(array_map(function(\ReflectionParameter $p) { return $p->getName(); }, $parameters), array_keys(get_object_vars($arguments)));
 			if (count($additionalArgs) > 0){
 				throw new \JSON_RPC\Exception_InvalidParams();
 			}
 			foreach ($parameters as $parameter) {
 				// check the object for the param
-				if (property_exists($parameter->getName(), $arguments)) {
-					$newArguments[] = $arguments[$parameter->getName()];
+				if (property_exists($arguments, $parameter->getName())) {
+					$newArguments[] = $arguments->{$parameter->getName()};
 				} elseif ($parameter->isOptional()) {
 					$newArguments[] = $parameter->getDefaultValue();
 				} else{

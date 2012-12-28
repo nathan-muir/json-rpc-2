@@ -14,7 +14,12 @@ class TestTransport implements TransportInterface {
 	/**
 	 * @var string
 	 */
-	private $request;
+	private $requestData;
+
+	/**
+	 * @var string
+	 */
+	private $response;
 
 	/**
 	 * @var string
@@ -22,12 +27,16 @@ class TestTransport implements TransportInterface {
 	private $desiredResponse;
 
 	/**
-	 * @param string $request
+	 * @param string $requestData
 	 * @param string $desiredResponse
 	 */
-	public function __construct($request, $desiredResponse){
-		$this->request = $request;
+	public function __construct($requestData, $desiredResponse){
+		$this->requestData = $requestData;
+		if (strlen($desiredResponse) > 0){
+			$desiredResponse = json_encode(json_decode($desiredResponse));
+		}
 		$this->desiredResponse = $desiredResponse;
+
 	}
 
 	/**
@@ -39,8 +48,9 @@ class TestTransport implements TransportInterface {
 	 */
 	public function getRequest()
 	{
-		return $this->request;
+		return \JSON_RPC\Request::createFromString($this->requestData);
 	}
+
 
 	/**
 	 * Processes data from it's specific source, and initialise a request, or a group of requests
@@ -48,23 +58,50 @@ class TestTransport implements TransportInterface {
 	 * @param \JSON_RPC\ResponseInterface $collection
 	 *
 	 * @throws TransportException
+	 *
 	 */
 	public function render(\JSON_RPC\ResponseInterface $collection = null)
 	{
 		if ($collection === null){
-			$response = '';
+			$this->response = '';
 		} else {
-			$response = (string) $collection;
+			$this->response = (string) $collection;
 		}
+	}
 
-		if (strcmp($response, $this->desiredResponse) !== 0){
-			throw new TransportException(
-				array(
-					"request"  => $this->request,
-					"expected" => $this->desiredResponse,
-					"received" => $response
-				)
-			);
+	/**
+	 * @return bool
+	 */
+	public function checkResponse(){
+		if (strlen($this->desiredResponse) === 0){
+			return strlen($this->response) === 0;
+		} else {
+			return strcmp($this->response, $this->desiredResponse) === 0;
 		}
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getRequestData()
+	{
+		return $this->requestData;
+	}
+
+
+	/**
+	 * @return string
+	 */
+	public function getResponse()
+	{
+		return $this->response;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getDesiredResponse()
+	{
+		return $this->desiredResponse;
 	}
 }
