@@ -37,10 +37,12 @@ class Server {
 
 	/**
 	 * Retrieves the request from the transport
-	 * @return mixed
+	 * @return ResponseInterface
 	 */
 	public function process(){
-		return $this->transport->render( $this->getResponse() );
+		$response = $this->getResponse();
+		$this->transport->render( $response );
+		return $response; // TODO decide if this is necessary
 	}
 
 	/**
@@ -57,7 +59,6 @@ class Server {
 		} catch (\Exception $ex){
 			return ResponseError::fromException(null, new Exception_InternalError());
 		}
-
 		// process the request (could be Request|Request[])
 		if (is_object($request)){ // if $request === Request
 			return $this->processRequest($request);
@@ -85,7 +86,7 @@ class Server {
 	 * @return Response|ResponseError|null
 	 */
 	private function processRequest(Request $request){
-		if ($request->valid){
+		if (!$request->valid){
 			return ResponseError::fromException(null, new Exception_InvalidRequest());
 		}
 		if ($request->isNotification()){

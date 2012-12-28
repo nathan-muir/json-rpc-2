@@ -3,7 +3,6 @@ JSON-RPC-V2-PHP
 
 This is a work in progress. The library may be functional, however a few things are still required.
 
-
 Testing:
 
 * Unit testing for core functionality / verification that it meets required standards

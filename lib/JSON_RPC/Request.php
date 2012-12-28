@@ -42,6 +42,8 @@ class Request {
 	public function __construct($data){
 		// check the validity of the request
 		if ($this->isValidRequest($data)){
+			$this->valid = true;
+
 			// import the id, method and params from the object
 			if(isset($data->id)){
 				$this->id = $data->id;
@@ -62,13 +64,19 @@ class Request {
 		// per the 2.0 specification
 		// a request object must:
 		// be an object
-		if( !is_object($request) ) return false;
+		if( !is_object($request) ) {
+			return false;
+		}
 
 		// contain a jsonrpc member that is a string
-		if( !isset($request->jsonrpc) || strcmp($request->jsonrpc,'2.0') !== 0 ) return false;
+		if( !isset($request->jsonrpc) || strcmp($request->jsonrpc,'2.0') !== 0 ){
+			return false;
+		}
 
 		// contain a method member that is a string
-		if( !isset($request->method) || !is_string($request->method) ) return false;
+		if( !isset($request->method) || !is_string($request->method) ){
+			return false;
+		}
 
 		// if it contains a params member
 		//    that member must be an array or an object
@@ -164,7 +172,8 @@ class Request {
 			break;
 		}
 		// throw Parse Error
-		throw new Exception_ParseError($error_text);
+		//TODO decide whether to show json-parser error data or not
+		throw new Exception_ParseError(/* $error_text */);
 	}
 
 	/**

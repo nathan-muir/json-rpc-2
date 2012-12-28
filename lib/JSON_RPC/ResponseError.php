@@ -56,7 +56,7 @@ class ResponseError implements ResponseInterface {
 			"id" => $this->id
 		);
 		if (isset($this->data)){
-			$error['data'] = $this->data;
+			$error['error']['data'] = $this->data;
 		}
 		return $error;
 	}
