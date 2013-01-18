@@ -26,7 +26,7 @@ class Loader
                 }
                 $fileName .= str_replace('_', DIRECTORY_SEPARATOR, $className) . '.' . $extension;
 
-                require $fileName;
+                include $fileName;
             }
         );
     }
