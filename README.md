@@ -75,13 +75,16 @@ Structure / Work-flow
 -------------------
 
 Transport Lifecycle:
+
 1. Reads the transport layer / source and creates / returns a set of requests
 2. Receives a response- and then renders it.
 
 Server Lifecycle:
+
 1. Obtains Requests from Transport via 'getRequests'.
 2. Iterates through each requests, obtaining the result through Dispatch->invoke. Exceptions are caught and turned into ResponseError.
 3. Passes the result, back to the Transport to be rendered.
 
 Dispatch Lifecycle:
+
 1. Is passed a method-alias and arguments, and must return a result or throw an exception.
