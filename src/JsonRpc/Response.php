@@ -3,7 +3,7 @@
 namespace JsonRpc;
 
 /**
- * A basic class that encapsulates a valid (non-erronous) response
+ * A basic class that encapsulates a valid (non-erroneous) response
  *
  * @author Nathan Muir
  * @version 2012-12-24

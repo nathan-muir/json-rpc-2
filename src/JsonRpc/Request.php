@@ -18,43 +18,72 @@ class Request
     const REQUEST_JSON_DEPTH_LIMIT = 24;
 
     /**
+     * @var string|int|null
+     */
+    public $id = null;
+
+    /**
      * @var bool
      */
-    public $valid = false;
+    public $hasId = false;
     /**
-     * @var int|null
+     * @var array|null
      */
-    public $id;
+    public $params = null;
 
     /**
-     * @var array
-     */
-    public $params = array();
-
-    /**
-     * @var string|null
+     * @var string
      */
     public $method;
 
+    /**
+     * @param string $method
+     * @param array|\stdClass $params
+     * @param bool $hasId As the $id can be null, this is to indicate whether the request has an id
+     * @param int|null|string|float $id
+     */
+    public function __construct($method, $params = null, $hasId = false, $id = null)
+    {
+        $this->method = $method;
+        $this->params = $params;
+        if ($hasId) {
+            $this->hasId = true;
+            $this->id = $id;
+        }
+    }
 
     /**
-     * @param mixed $data
+     * @return bool
      */
-    public function __construct($data)
+    public function isNotification()
     {
-        // check the validity of the request
-        if ($this->isValidRequest($data)) {
-            $this->valid = true;
+        return !$this->hasId;
+    }
 
-            // import the id, method and params from the object
-            if (isset($data->id)) {
-                $this->id = $data->id;
-            }
-            $this->method = $data->method;
-            if (isset($data->params)) {
-                $this->params = $data->params;
-            }
+    /**
+     * @return array
+     */
+    public function render()
+    {
+        $render = array(
+            "jsonrpc" => "2.0",
+            "method" => $this->method
+        );
+        if (isset($this->params)) {
+            $render['params'] = $this->params;
         }
+        if ($this->hasId) {
+            $render['id'] = $this->id;
+        }
+        return $render;
+    }
+
+    /**
+     * @return string
+     */
+    public function __toString()
+    {
+        return json_encode($this->render());
     }
 
     /**
@@ -62,7 +91,7 @@ class Request
      * @param mixed $request
      * @return bool
      */
-    private function isValidRequest($request)
+    private static function isValidRequest($request)
     {
         // per the 2.0 specification
         // a request object must:
@@ -77,19 +106,22 @@ class Request
         }
 
         // contain a method member that is a string
-        if (!isset($request->method) || !is_string($request->method)) {
+        if (!isset($request->method) || !is_string($request->method) || strlen($request->method) === 0) {
             return false;
         }
 
         // if it contains a params member
         //    that member must be an array or an object
-        if (isset($request->params) && !is_array($request->params) && !is_object($request->params)) {
+        if (property_exists($request, 'params') && !is_array($request->params) && !is_object($request->params)) {
             return false;
         }
 
         // if it contains an id member
         //    that member must be a string, number, or null
-        if (isset($request->id) && !is_string($request->id) && !is_numeric($request->id)) {
+        if (property_exists($request, 'id') && !is_null($request->id) && !is_int($request->id) && !is_float(
+            $request->id
+        ) && !is_string($request->id)
+        ) {
             return false;
         }
 
@@ -98,40 +130,19 @@ class Request
     }
 
     /**
-     * @return bool
+     * @param $request
+     * @return Request|null
      */
-    public function isNotification()
+    private static function createFrom($request)
     {
-        return !isset($this->id);
-    }
-
-
-    /**
-     * @param array $data
-     * @return Request
-     */
-    public static function createFromAssoc($data)
-    {
-        $request = (object)array('method' => null, 'params' => array(), 'id' => null, 'jsonrpc' => '2.0');
-
-        if (isset($data['method'])) {
-            $request->method = $data['method'];
+        if (!self::isValidRequest($request)) {
+            return null;
         }
-
-        if (isset($data['id'])) {
-            $request->id = $data['id'];
-        }
-
-        if (isset($data['params'])) {
-            $params = $data['params'];
-            // if it's an hash, and it's not an "array", convert to object
-            if (is_array($params) && array_keys($params) !== range(0, count($params) - 1)) {
-                $request->params = (object)$params;
-            } else {
-                $request->params = $params;
-            }
-        }
-        return new self($request);
+        // import the id, method and params from the object
+        return new self($request->method, isset($request->params) ? $request->params : null, property_exists(
+            $request,
+            'id'
+        ), isset($request->id) ? $request->id : null);
     }
 
     /**
@@ -144,67 +155,50 @@ class Request
      */
     public static function createFromString($data)
     {
-
         // decode the string
-        $json_data = json_decode($data, false, self::REQUEST_JSON_DEPTH_LIMIT);
+        $request = json_decode($data, false, self::REQUEST_JSON_DEPTH_LIMIT);
         // obtain any errors
         $error = json_last_error();
 
-        if ($error == JSON_ERROR_NONE) {
-            // create the request/requests from the decoded data
-            return self::createFrom($json_data);
+        if ($error != JSON_ERROR_NONE) {
+            // in case of error, return useful message why it failed to parse
+            // from http://php.net/manual/en/function.json-last-error.php
+            switch ($error) {
+                case JSON_ERROR_DEPTH:
+                    $error_text = 'Maximum request nesting depth reached';
+                    break;
+                case JSON_ERROR_STATE_MISMATCH:
+                    $error_text = 'Underflow or the modes mismatch';
+                    break;
+                case JSON_ERROR_CTRL_CHAR:
+                    $error_text = 'Unexpected control character found';
+                    break;
+                case JSON_ERROR_SYNTAX:
+                    $error_text = 'Syntax error, malformed JSON';
+                    break;
+                case JSON_ERROR_UTF8:
+                    $error_text = 'Malformed UTF-8 characters, possibly incorrectly encoded';
+                    break;
+                default:
+                    $error_text = 'Unknown error';
+                    break;
+            }
+            // throw Parse Error
+            //TODO decide whether to show json-parser error data or not
+            throw new Exception_ParseError( /* $error_text */);
         }
 
-        // in case of error, return useful message why it failed to parse
-        // from http://php.net/manual/en/function.json-last-error.php
-        switch ($error) {
-            case JSON_ERROR_DEPTH:
-                $error_text = 'Maximum request nesting depth reached';
-                break;
-            case JSON_ERROR_STATE_MISMATCH:
-                $error_text = 'Underflow or the modes mismatch';
-                break;
-            case JSON_ERROR_CTRL_CHAR:
-                $error_text = 'Unexpected control character found';
-                break;
-            case JSON_ERROR_SYNTAX:
-                $error_text = 'Syntax error, malformed JSON';
-                break;
-            case JSON_ERROR_UTF8:
-                $error_text = 'Malformed UTF-8 characters, possibly incorrectly encoded';
-                break;
-            default:
-                $error_text = 'Unknown error';
-                break;
-        }
-        // throw Parse Error
-        //TODO decide whether to show json-parser error data or not
-        throw new Exception_ParseError( /* $error_text */);
-    }
-
-    /**
-     * @param mixed $mixed
-     *
-     * @throws \JsonRpc\Exception_InvalidRequest
-     *
-     * @return Request|Request[]
-     */
-    public static function createFrom($mixed)
-    {
         // create a new collection
-        if (is_object($mixed)) { // && get_class($mixed) == 'StdClass'
-            // objects are assumed to be attempts at single requests
-            return new self($mixed);
-        } elseif (is_array($mixed) && count($mixed) > 0) {
+        if (is_array($request) && count($request) > 0) {
             // non-empty arrays are attempts at batch requests
             $collection = array();
-            foreach ($mixed as $request) {
-                $collection[] = new self($request);
+            foreach ($request as $singleRequest) {
+                $collection[] = self::createFrom($singleRequest);
             }
             return $collection;
         } else {
-            // everything else is invalid
-            throw new Exception_InvalidRequest();
+            // all other valid json is treated as a single request
+            return self::createFrom($request);
         }
     }
 
