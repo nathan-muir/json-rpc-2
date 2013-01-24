@@ -11,18 +11,23 @@ namespace JsonRpc;
  * @author Nathan Muir
  * @version 2012-12-24
  */
-class Server
+class Server implements \Psr\Log\LoggerAwareInterface
 {
 
     /**
      * @var \JsonRpc\Transport\TransportInterface
      */
-    protected $transport;
+    private $transport;
 
     /**
      * @var \JsonRpc\Dispatch\DispatchInterface
      */
-    protected $dispatch;
+    private $dispatch;
+
+    /**
+     * @var \Psr\Log\LoggerInterface
+     */
+    private $logger;
 
     /**
      * Constructs a new \JsonRpc\Server
@@ -34,39 +39,60 @@ class Server
     {
         $this->transport = $transport;
         $this->dispatch = $dispatch;
+        $this->setLogger(new \Psr\Log\NullLogger());
     }
 
+    /**
+     * Sets a logger instance on the object
+     *
+     * @param \Psr\Log\LoggerInterface $logger
+     * @return null
+     */
+    public function setLogger(\Psr\Log\LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+    }
 
     /**
-     * Retrieves the request from the transport
-     * @return ResponseInterface
+     * Retrieves the request from the transport, obtains the response, and replies with the response.
+     *
+     * @throws Transport\TransportException
      */
     public function process()
     {
-        $response = $this->getResponse();
-        $this->transport->render($response);
-        return $response; // TODO decide if this is necessary
+        try {
+            // interrogate the transport for the request
+            $requestString = $this->transport->receive();
+            // instantiate the request as PHP objects from a string
+            $request = Request::createFromString($requestString);
+            // process the request, and obtain the response
+            $response = $this->getResponse($request);
+        } catch (\JsonRpc\Exception $tex) {
+            $response = ResponseError::fromException(null, $tex);
+        } catch (\Exception $ex) {
+            $response = ResponseError::fromException(null, new Exception_InternalError());
+        }
+        // response is null - iff ?
+        if ($response === null) {
+            $this->transport->reply('');
+        } else {
+            $this->transport->reply((string)$response);
+        }
     }
 
     /**
-     * This method performs the main processing of the class
      *
-     * @return ResponseInterface
+     *
+     * @param $request Request|Request[]|null
+     * @return ResponseInterface|null
      */
-    private function getResponse()
+    private function getResponse($request)
     {
-        // interrogate the transport for the request collection
-        try {
-            $request = $this->transport->getRequest();
-        } catch (\JsonRpc\Exception $tex) {
-            return ResponseError::fromException(null, $tex);
-        } catch (\Exception $ex) {
-            return ResponseError::fromException(null, new Exception_InternalError());
-        }
-        // process the request (could be Request|Request[])
-        if (is_object($request)) { // if $request === Request
+        // if $request === null || $request instanceof \stdClass
+        if (!is_array($request)) {
             return $this->processRequest($request);
-        } else { // else if it's an array of requests
+        } // else if it's an array of requests
+        else {
             // process each request
             $responses = array();
             foreach ($request as $r) {
@@ -89,11 +115,12 @@ class Server
      * @param Request $request
      * @return Response|ResponseError|null
      */
-    private function processRequest(Request $request)
+    private function processRequest(Request $request = null)
     {
-        if (!$request->valid) {
+        if ($request === null) {
             return ResponseError::fromException(null, new Exception_InvalidRequest());
         }
+
         if ($request->isNotification()) {
             // invoke, and ignore all errors
             try {
@@ -102,7 +129,6 @@ class Server
             }
             return null;
         } else {
-
             try {
                 $result = $this->dispatch->invoke($request->method, $request->params);
                 $response = new Response($request->id, $result);
@@ -119,4 +145,5 @@ class Server
             return $response;
         }
     }
+
 }

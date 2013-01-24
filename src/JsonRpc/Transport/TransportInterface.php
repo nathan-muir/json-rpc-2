@@ -2,27 +2,34 @@
 
 namespace JsonRpc\Transport;
 
+/**
+ * @author Nathan Muir
+ * @version 2012-12-24
+ */
 interface TransportInterface
 {
 
     /**
-     * Processes data from it's specific source, and initialise a request, or a group of requests
+     * Processes data from it's specific source, and return data or throw a \JsonRpc\Exception.
      *
-     * @return \JsonRpc\Request|\JsonRpc\Request[]
-     * @throws TransportException
+     * The exception thrown should generate a suitable response for the client. If it's not suitable to respond to the client
+     * a TransportException should be generated.
+     *
+     * @return string
+     *
      * @throws \JsonRpc\Exception
      */
-    public function getRequest();
+    public function receive();
 
 
     /**
-     * Processes data from it's specific source, and initialise a request, or a group of requests
+     * Reply to the JSON-RPC request via the transport.
      *
-     * @param \JsonRpc\ResponseInterface $collection
+     * @param string $response
      *
      * @throws TransportException
      */
-    public function render(\JsonRpc\ResponseInterface $collection = null);
+    public function reply($response);
 
 
 }

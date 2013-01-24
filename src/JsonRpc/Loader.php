@@ -33,7 +33,7 @@ class Loader
 
     public static function classmap()
     {
-        // TODO create a list of require files
+        // TODO create a list of required files
 
         $files = array();
 

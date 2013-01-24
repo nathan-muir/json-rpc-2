@@ -76,14 +76,15 @@ Structure / Work-flow
 
 Transport Lifecycle:
 
-1. Reads the transport layer / source and creates / returns a set of requests
-2. Receives a response- and then renders it.
+1. Reads the transport layer / source - provides string/text only
+2. Receives a text reply to render
 
 Server Lifecycle:
 
-1. Obtains Requests from Transport via 'getRequests'.
-2. Iterates through each requests, obtaining the result through Dispatch->invoke. Exceptions are caught and turned into ResponseError.
-3. Passes the result, back to the Transport to be rendered.
+1. Obtains Requests text from Transport via 'receive'.
+2. Uses \JsonRpc\Request::createFromString to parse in to objects
+3. Iterates through each requests, obtaining the result through Dispatch->invoke. Exceptions are caught and turned into ResponseError.
+4. Passes the result, back to the Transport to be rendered.
 
 Dispatch Lifecycle:
 
