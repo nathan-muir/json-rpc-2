@@ -82,7 +82,7 @@ Transport Lifecycle:
 Server Lifecycle:
 
 1. Obtains Requests text from Transport via 'receive'.
-2. Uses \JsonRpc\Request::createFromString to parse in to objects
+2. Uses \JsonRpc\RequestParser->parse() to parse in to objects
 3. Iterates through each requests, obtaining the result through Dispatch->invoke. Exceptions are caught and turned into ResponseError.
 4. Passes the result, back to the Transport to be rendered.
 
