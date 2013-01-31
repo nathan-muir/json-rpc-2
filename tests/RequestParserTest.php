@@ -1,5 +1,5 @@
 <?php
-namespace Ndm\JsonRpc2;
+namespace Ndm\JsonRpc2\Core;
 
 /**
  *
@@ -8,13 +8,13 @@ class RequestParserTest extends \PHPUnit_Framework_TestCase
 {
 
     /**
-     * @var \Ndm\JsonRpc2\Server\RequestParser
+     * @var \Ndm\JsonRpc2\Core\RequestParser
      */
     private $parser;
 
     public function setUp()
     {
-        $this->parser = new \Ndm\JsonRpc2\Server\RequestParser();
+        $this->parser = new \Ndm\JsonRpc2\Core\RequestParser();
     }
 
     public function tearDown()
@@ -246,7 +246,7 @@ class RequestParserTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException \Ndm\JsonRpc2\Exception_ParseError
+     * @expectedException \Ndm\JsonRpc2\Core\Exception\JsonParseException
      * @dataProvider invalidJsonRequestProvider
      */
     public function testInvalidJson($json)

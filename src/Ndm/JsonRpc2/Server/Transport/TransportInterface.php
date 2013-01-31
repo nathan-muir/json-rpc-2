@@ -3,8 +3,8 @@
 namespace Ndm\JsonRpc2\Server\Transport;
 
 /**
- * @author Nathan Muir
- * @version 2012-12-24
+ *
+ *
  */
 interface TransportInterface
 {
@@ -17,7 +17,7 @@ interface TransportInterface
      *
      * @return string
      *
-     * @throws \Ndm\JsonRpc2\Exception
+     * @throws \Ndm\JsonRpc2\Server\Exception\TransportException
      */
     public function receive();
 
@@ -27,7 +27,7 @@ interface TransportInterface
      *
      * @param string $response
      *
-     * @throws TransportException
+     * @throws \Ndm\JsonRpc2\Server\Exception\TransportException
      */
     public function reply($response);
 

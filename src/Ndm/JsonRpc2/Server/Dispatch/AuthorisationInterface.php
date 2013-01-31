@@ -7,8 +7,6 @@ namespace Ndm\JsonRpc2\Server\Dispatch;
  *
  * The design constraint is that implementations [of this interface] may require their own implementation of MethodInterface.
  *
- * @author Nathan Muir
- * @version 2013-01-18
  */
 interface AuthorisationInterface
 {

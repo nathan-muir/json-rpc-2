@@ -1,12 +1,10 @@
 <?php
 
-namespace Ndm\JsonRpc2;
+namespace Ndm\JsonRpc2\Core;
 
 /**
  * A basic class that encapsulates a valid (non-erroneous) response
  *
- * @author Nathan Muir
- * @version 2012-12-24
  */
 class Response implements ExportableInterface
 {

@@ -2,180 +2,136 @@
 
 namespace Ndm\JsonRpc2\Client;
 
-use \Ndm\JsonRpc2\Request;
-use \Ndm\JsonRpc2\BatchRequest;
-use \Ndm\JsonRpc2\Exception;
-use \Ndm\JsonRpc2\Response;
-use \Ndm\JsonRpc2\BatchResponse;
-use \Ndm\JsonRpc2\ResponseError;
+use \Ndm\JsonRpc2\Core as Core;
 
 /**
- * @author Nathan Muir
- * @version 2013-01-29
+ *
+ *
  */
 class Client
 {
-
-    const REQUEST_ID_INTEGER = 1;
-    const REQUEST_ID_UUID = 2;
 
     /**
      * @var \Ndm\JsonRpc2\Client\Transport\TransportInterface
      */
     private $transport;
 
-
     /**
-     * @var int
-     */
-    private $id = 1;
-
-    /**
-     * @var int
-     */
-    private $idMode;
-
-    /**
-     * @var ResponseParser
+     * @var \Ndm\JsonRpc2\Core\ResponseParser
      */
     private $parser;
 
     /**
      * @param Transport\TransportInterface $transport
-     * @param int $idMode
      */
-    public function __construct(Transport\TransportInterface $transport, $idMode = self::REQUEST_ID_UUID)
+    public function __construct(Transport\TransportInterface $transport)
     {
         $this->transport = $transport;
-        $this->idMode = $idMode;
+        $this->parser = new Core\ResponseParser();
+    }
 
-        $this->parser = new ResponseParser();
+    /**
+     * @param \Ndm\JsonRpc2\Core\Request $request
+     *
+     * @throws Exception\ClientException
+     * @throws Exception\TransportException
+     *
+     *
+     * @return null|\Ndm\JsonRpc2\Core\BatchResponse|\Ndm\JsonRpc2\Core\Response|\Ndm\JsonRpc2\Core\ResponseError
+     */
+    private function send(Core\Request $request)
+    {
+        // send the request via the transport
+        $responseJson = $this->transport->send($request->toJson());
+
+        try {
+            // parse the request json
+            $response = $this->parser->parse($responseJson);
+        } catch (Core\Exception\JsonParseException $jpe) {
+            // encapsulate parsing exceptions as client exceptions
+            throw new Exception\ClientException("Failed to parse response from server.", 0, $jpe);
+        } catch (Core\Exception\InvalidResponseException $ire) {
+            // encapsulate parse-decode exceptions as client exceptions
+            throw new Exception\ClientException("The response received from the server was invalid.", 0, $ire);
+        }
+        // return the response
+        return $response;
+    }
+
+
+    /**
+     * @param string $method
+     * @param null|array|\stdClass $arguments
+     *
+     * @throws Exception\ClientException
+     * @throws Exception\TransportException
+     * @throws Exception\ClientResponseException
+     * @throws Exception\ClientResponseIdMismatchException
+     *
+     * @return mixed
+     */
+    public function call($method, $arguments = null)
+    {
+        // create the ID for the request - need to check against this later
+        $id = $this->uuid();
+        // create & send a request object from the call parameters
+        $response = $this->send(new Core\Request($method, $arguments, true, $id));
+        // if the response was empty - ie server assumed it was a notification
+        if ($response === null) {
+            throw new Exception\ClientException("The was no response to the json-rpc call");
+        }
+        // if the response is a batch- what the hell
+        if ($response instanceof Core\BatchResponse) {
+            throw new Exception\ClientException("The response was of an unexpected type");
+        }
+        // if the response was an error- throw a suitable exception
+        if ($response instanceof Core\ResponseError) {
+            // create an exception from the ResponseError object
+            $responseException = new Exception\ClientResponseException($response->code, $response->message, $response->data);
+            if ($response->id !== $id) {
+                // this should only happen for parser or invalid request errors
+                // note: may false negative for these cases if request->id is null [which shouldn't happen in this implementation]
+                throw new Exception\ClientException("The request was malformed, or the server replied erroneously", 0, $responseException);
+            }
+            // propagate the json-rpc level exception
+            throw $responseException;
+        }
+
+        assert('$response instanceof \\Ndm\\JsonRpc2\\Core\\Response');
+
+        // if the response id doesn't match
+        if ($response->id !== $id) {
+            throw new Exception\ClientResponseIdMismatchException($id, $response->id);
+        }
+
+        // finally: return the result
+        return $response->result;
     }
 
     /**
      * @param string $method
      * @param null|array|\stdClass $arguments
-     * @return mixed
+     *
+     * @throws Exception\ClientException
+     * @throws Exception\TransportException
+     * @throws Exception\ClientResponseException
+     *
+     * @return void
      */
-    public function call($method, $arguments = null)
-    {
-
-        // create a request object from the call parameters
-        $request = new Request($method, $arguments, true, $this->getID());
-
-        // send the request via the transport
-        $responseJson = $this->transport->send($request->toJson());
-
-        // parse the request json
-        $response = $this->parser->parse($responseJson);
-
-        // if the response was empty - ie server assumed it was a notification
-        if ($response === null) {
-            throw new \Ndm\JsonRpc2\Exception("", -1);
-        }
-        // if the response is a batch- what the hell
-        if ($response instanceof BatchResponse) {
-            throw new Exception("", -1);
-        }
-        // if the response was an error- throw a suitable exception
-        if ($response instanceof ResponseError) {
-            if ($response->id !== $request->id) {
-                // this should only happen for parser or invalid request errors
-            }
-            // propagate the json-rpc level exception
-            throw new Exception("", -1);
-        }
-        // if the response id doesn't match
-        if ($response->id !== $request->id) {
-            throw new Exception("", -1);
-        }
-
-        assert('$response instanceof \\Ndm\\JsonRpc2\\Response');
-        // finally: return the result
-        return $response->result;
-    }
-
     public function notify($method, $arguments = null)
     {
-        // create a request object from the call parameters
-        $request = new Request($method, $arguments, false);
-
-        // send the request via the transport
-        $responseJson = $this->transport->send($request->toJson());
-
-        // parse the request json
-        $response = $this->parser->parse($responseJson);
+        // create & send a request object from the call parameters
+        $response = $this->send(new Core\Request($method, $arguments));
 
         // there should be no response in the case of notifications
-        if ($response === null) {
-            return;
-        }
-        // there may have been some error in interpreting the request
-        if ($response instanceof ResponseError) {
-            throw new Exception("", -1);
-        }
-
-        // what the hell was the response?
-        throw new Exception("", -1);
-    }
-
-    public function batch($requests)
-    {
-        // detect use of variadic arguments
-        if (func_num_args() > 1) {
-            $requests = func_get_args();
-        }
-
-        // squash in to batch request
-        if (!($requests instanceof BatchRequest)) {
-            $requests = new BatchRequest($requests);
-        }
-
-        // send the request via the transport
-        $responseJson = $this->transport->send($requests->toJson());
-
-        // parse the request json
-        $response = $this->parser->parse($responseJson);
-
-        // if the response was empty - ie server assumed it was a notification
-        if ($response === null) {
-            if (!$requests->isNotification()) { // TODO implement BatchRequest->isNotification()
-                throw new Exception("", -1);
+        if ($response !== null) {
+            // there may have been some error in interpreting the request
+            if ($response instanceof Core\ResponseError) {
+                throw new Exception\ClientResponseException($response->code, $response->message, $response->data);
             }
-            return null; // TODO decide NULL or empty array|iterable
-        }
-        // check for a response indicating an error
-        if ($response instanceof ResponseError) {
-            if ($response->id !== null) {
-                // in the case of an ResponseError when sending a batch
-                // the response->id should always be null
-            }
-            // propagate the json-rpc level exception
-            throw new Exception("", -1);
-        }
-        // check for misinterpretation of request - shouldn't be a single response
-        if ($response instanceof Response) {
-            // shouldn't receive single response for batch
-            throw new Exception("", -1);
-        }
 
-        // should only be a batch response now
-        assert('$response instanceof \\Ndm\\JsonRpc2\\BatchResponse');
-
-        // TODO: How to bind the output result correctly?
-        // - Callbacks?
-        // - Special Request->response bindings (eg. $request->getResponse())
-        // - User can 'lookup' response in BatchResponse (eg $batchResponse->getResponse($request->id));
-        // - Iterable "Hash|Map" with the request as key-> response as value
-        return $response;
-    }
-
-    private function getID()
-    {
-        if (self::REQUEST_ID_INTEGER == $this->idMode) {
-            return $this->id++;
-        } else {
-            return $this->uuid();
+            // what the hell was the response?
+            throw new Exception\ClientException("Received a response to a notification");
         }
     }
 

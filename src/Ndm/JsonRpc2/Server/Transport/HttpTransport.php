@@ -2,12 +2,14 @@
 
 namespace Ndm\JsonRpc2\Server\Transport;
 
+use \Ndm\JsonRpc2\Server\Exception\TransportException;
+use \Ndm\JsonRpc2\Server\Exception\TransportReceiveException;
+use \Ndm\JsonRpc2\Server\Exception\TransportReplyException;
+
 /**
  * A basic HttpTransport.
  *
  *
- * @author Nathan Muir
- * @version 2012-12-24
  */
 class HttpTransport implements TransportInterface
 {
@@ -16,10 +18,13 @@ class HttpTransport implements TransportInterface
      * @const
      */
     const OPT_NONE = 0;
-    /**@#+
+    /**
      * @const Request / input options
      */
     const OPT_REQUIRE_HTTPS = 1;
+    /**
+     * @const Request / input options
+     */
     const OPT_REQUIRE_CONTENT_TYPE = 2; // only applicable if SOURCE_POST
     /**@#+
      * @const Render / Output Options
@@ -42,23 +47,22 @@ class HttpTransport implements TransportInterface
     /**
      * Processes data from it's specific source, and initialise a request, or a group of requests
      *
-     * @return \Ndm\JsonRpc2\Request|\Ndm\JsonRpc2\Request[]
-     * @throws TransportException
-     * @throws \Ndm\JsonRpc2\Exception
+     * @return string
+     * @throws TransportReceiveException
      */
     public function receive()
     {
         // check configuration options
         if ($this->isOptRequireHttps() && (empty($_SERVER['HTTPS']) || strcmp($_SERVER['HTTPS'], 'off') === 0)) {
-            throw new TransportException("HTTPS is Required");
+            throw new TransportReceiveException("HTTPS is Required");
         }
 
         if (!$this->isHttpPost()) {
-            throw new TransportException("Request must be a HTTP-POST");
+            throw new TransportReceiveException("Request must be a HTTP-POST");
         }
 
         if ($this->isOptRequireContentType() && !$this->isContentTypeJson()) {
-            throw new TransportException("Content Type isn't application/json");
+            throw new TransportReceiveException("Content Type isn't application/json");
         }
 
         return $this->getRawHttpPost();
@@ -66,13 +70,13 @@ class HttpTransport implements TransportInterface
 
     /**
      * @param string $response
-     * @throws TransportException
+     * @throws TransportReplyException
      */
     public function reply($response)
     {
         if ($this->isOptSendOutputHeaders()) {
             if (headers_sent()) {
-                throw new TransportException("Headers already sent");
+                throw new TransportReplyException("Headers already sent");
             }
             header("Content-type: application/json");
             header("Content-length: " . strlen($response));

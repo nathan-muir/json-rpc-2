@@ -1,11 +1,12 @@
 <?php
 namespace Ndm\JsonRpc2\Server\Dispatch;
 
+use \Ndm\JsonRpc2\Server\Exception\RuntimeException;
+use \Ndm\JsonRpc2\Server\Exception\InvalidArgumentException;
+
 /**
  * A basic implementation, which uses reflections on invocation to parse & check arguments
  *
- * @author Nathan Muir
- * @version 2013-01-18
  */
 class ReflectionMethod implements MethodInterface
 {
@@ -104,16 +105,15 @@ class ReflectionMethod implements MethodInterface
     /**
      * @param array $arguments
      *
-     * @throws \Ndm\JsonRpc2\Exception_InvalidParams
-     * @throws \Ndm\JsonRpc2\Exception_InternalError
-     * @throws \Ndm\JsonRpc2\Exception
+     * @throws InvalidArgumentException
+     * @throws RuntimeException
      *
      * @return mixed
      */
     public function invoke($arguments)
     {
         if (!is_callable($this->callable)) {
-            throw new \Ndm\JsonRpc2\Exception_InternalError();
+            throw new RuntimeException("Method '{$this->alias}' doesn't have a valid callable");
         }
         $parameters = $this->getParameters();
         // check the parameters in the reflection against what was sent in the request
@@ -123,12 +123,9 @@ class ReflectionMethod implements MethodInterface
         $result = null;
         try {
             $result = call_user_func_array($this->callable, $arguments);
-        } catch (\Ndm\JsonRpc2\Exception $jex) {
-            // allow user created exceptions that extend Ndm\JsonRpc2\Exception to bubble to client | error code
-            throw $jex;
         } catch (\Exception $ex) {
             // cover other exceptions as internal errors
-            throw new \Ndm\JsonRpc2\Exception_InternalError();
+            throw new RuntimeException("Execution of method '{$this->alias}'  failed.", 0, $ex);
         }
         return $result;
     }
@@ -155,7 +152,7 @@ class ReflectionMethod implements MethodInterface
      * Uses reflections to load the parameters from any callable.
      *
      * @param callable $callable
-     * @throws \Ndm\JsonRpc2\Exception_InternalError
+     * @throws RuntimeException
      * @return \ReflectionParameter[]
      */
     private function loadParameters($callable)
@@ -171,7 +168,7 @@ class ReflectionMethod implements MethodInterface
                 list ($classOrObject, $method) = $callable;
                 // can't support format [ 'class', 'parent::method' ]
                 if (strpos($method, "::") !== false) {
-                    throw new \Ndm\JsonRpc2\Exception_InternalError();
+                    throw new RuntimeException();
                 }
                 // try to instantiate the reflection
                 $reflection = new \ReflectionMethod($classOrObject, $method);
@@ -183,7 +180,7 @@ class ReflectionMethod implements MethodInterface
             return $reflection->getParameters();
         } catch (\ReflectionException $rex) {
             // NOTE: could add $rex->getMessage() to the data of the internal error, however not suitable for production
-            throw new \Ndm\JsonRpc2\Exception_InternalError();
+            throw new RuntimeException("Failed to load parameters via reflections for callable.", 0, $rex);
         }
     }
 
@@ -216,7 +213,7 @@ class ReflectionMethod implements MethodInterface
      *
      * @param array $parameters
      * @param object|array $arguments
-     * @throws \Ndm\JsonRpc2\Exception_InvalidParams
+     * @throws InvalidArgumentException
      * @return array
      */
     private function checkArguments($parameters, $arguments)
@@ -230,7 +227,7 @@ class ReflectionMethod implements MethodInterface
                 array_keys(get_object_vars($arguments))
             );
             if (count($additionalArgs) > 0) {
-                throw new \Ndm\JsonRpc2\Exception_InvalidParams();
+                throw new InvalidArgumentException("Additional named arguments were supplied that are not supported.");
             }
             foreach ($parameters as $parameterName => $parameter) {
                 // check the object for the param
@@ -240,13 +237,13 @@ class ReflectionMethod implements MethodInterface
                     $newArguments[] = $parameter['default'];
                 } else {
                     // if the parameter is not provided by arguments, throw an exception
-                    throw new \Ndm\JsonRpc2\Exception_InvalidParams();
+                    throw new InvalidArgumentException("Required named parameter was not provided: {$parameterName}");
                 }
             }
         } else {
             $numArgs = count($arguments);
             if ($numArgs > count($parameters)) {
-                throw new \Ndm\JsonRpc2\Exception_InvalidParams();
+                throw new InvalidArgumentException("Additional positional arguments were supplied that are not supported.");
             }
             $currentArg = 0;
             foreach ($parameters as $parameter) {
@@ -256,7 +253,7 @@ class ReflectionMethod implements MethodInterface
                 } elseif ($parameter['hasDefault']) {
                     $newArguments[] = $parameter['default'];
                 } else {
-                    throw new \Ndm\JsonRpc2\Exception_InvalidParams();
+                    throw new InvalidArgumentException("Required positional parameter was not provided: {$currentArg}");
                 }
             }
         }

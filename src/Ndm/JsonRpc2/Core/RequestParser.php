@@ -1,17 +1,17 @@
 <?php
-namespace Ndm\JsonRpc2\Server;
+namespace Ndm\JsonRpc2\Core;
 
-use Ndm\JsonRpc2\Request;
-use \Ndm\JsonRpc2\Json;
 
+/**
+ *
+ */
 class RequestParser
 {
-
 
     /**
      * @const int Limits the depth parsed by JSON requests
      */
-    const JSON_DECODE_DEPTH_LIMIT = 24;
+    const JSON_DECODE_DEPTH_LIMIT = 512;
 
     /**
      * @var int
@@ -71,7 +71,7 @@ class RequestParser
 
     /**
      * @param $request
-     * @return \Ndm\JsonRpc2\Request|null
+     * @return \Ndm\JsonRpc2\Core\Request|null
      */
     private function createFrom($request)
     {
@@ -90,8 +90,7 @@ class RequestParser
     /**
      * @param string $json
      *
-     * @throws \Ndm\JsonRpc2\Exception_ParseError
-     * @throws \Ndm\JsonRpc2\Exception_InvalidRequest
+     * @throws Exception\JsonParseException
      *
      * @return Request|Request[]
      */

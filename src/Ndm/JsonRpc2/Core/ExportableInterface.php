@@ -1,11 +1,9 @@
 <?php
 
-namespace Ndm\JsonRpc2;
+namespace Ndm\JsonRpc2\Core;
 
 /**
  *
- * @author Nathan Muir
- * @version 2012-12-24
  */
 interface ExportableInterface
 {

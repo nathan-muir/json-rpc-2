@@ -1,13 +1,13 @@
 <?php
 
-namespace Ndm\JsonRpc2;
+namespace Ndm\JsonRpc2\Core;
 
 /**
  * An object representation of a single request
  *
  * @author Matt Morley (MPCM)
- * @author Nathan Muir
- * @version 2012-12-24
+ *
+ *
  *
  */
 class Request implements ExportableInterface
