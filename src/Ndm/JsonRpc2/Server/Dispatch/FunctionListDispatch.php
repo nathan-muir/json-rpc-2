@@ -1,9 +1,13 @@
 <?php
 namespace Ndm\JsonRpc2\Server\Dispatch;
 
+use \Ndm\JsonRpc2\Server\Exception\MethodNotFoundException;
+use \Ndm\JsonRpc2\Server\Exception\RuntimeException;
+use \Ndm\JsonRpc2\Server\Exception\InvalidArgumentException;
+
 /**
- * @author Nathan Muir
- * @version 2012-12-24
+ *
+ *
  */
 
 class FunctionListDispatch implements DispatchInterface
@@ -26,18 +30,17 @@ class FunctionListDispatch implements DispatchInterface
      * @param string $alias
      * @param array $arguments
      *
-     * @throws \Ndm\JsonRpc2\Exception_InvalidParams
-     * @throws \Ndm\JsonRpc2\Exception_MethodNotFound
-     * @throws \Ndm\JsonRpc2\Exception_InternalError
+     * @throws MethodNotFoundException
+     * @throws InvalidArgumentException
+     * @throws RuntimeException
      *
      * @return mixed
      */
     public function invoke($alias, $arguments)
     {
-
         // if the method requested is available
         if (!isset($this->methodMap[$alias])) {
-            throw new \Ndm\JsonRpc2\Exception_MethodNotFound();
+            throw new MethodNotFoundException($alias);
         }
 
         try {
@@ -51,15 +54,17 @@ class FunctionListDispatch implements DispatchInterface
             return $reflection->invokeArgs($arguments);
 
         } catch (\ReflectionException $rex) {
-            // NOTE: could add $rex->getMessage() to the data of the internal error, however not suitable for production
-            throw new \Ndm\JsonRpc2\Exception_InternalError();
+            // Propagate an appropriate exception
+            throw new RuntimeException("Reflections failed on alias: {$alias}", 0, $rex);
+        } catch (\Exception $ex) {
+            throw new RuntimeException("Execution of method '{$alias}'  failed.", 0, $ex);
         }
     }
 
     /**
      * @param \ReflectionParameter[] $parameters
      * @param object|array $arguments
-     * @throws \Ndm\JsonRpc2\Exception_InvalidParams
+     * @throws InvalidArgumentException
      * @return array
      */
     private function checkParams($parameters, $arguments)
@@ -78,7 +83,7 @@ class FunctionListDispatch implements DispatchInterface
                 array_keys(get_object_vars($arguments))
             );
             if (count($additionalArgs) > 0) {
-                throw new \Ndm\JsonRpc2\Exception_InvalidParams();
+                throw new InvalidArgumentException("Additional named arguments were supplied that are not supported.");
             }
             foreach ($parameters as $parameter) {
                 // check the object for the param
@@ -88,13 +93,13 @@ class FunctionListDispatch implements DispatchInterface
                     $newArguments[] = $parameter->getDefaultValue();
                 } else {
                     // if the parameter is not provided by arguments, throw an exception
-                    throw new \Ndm\JsonRpc2\Exception_InvalidParams();
+                    throw new InvalidArgumentException("Required named parameter was not provided: {$parameter->getName()}");
                 }
             }
         } else {
             $numArgs = count($arguments);
             if ($numArgs > count($parameters)) {
-                throw new \Ndm\JsonRpc2\Exception_InvalidParams();
+                throw new InvalidArgumentException("Additional positional arguments were supplied that are not supported.");
             }
             $currentArg = 0;
             foreach ($parameters as $parameter) {
@@ -104,7 +109,7 @@ class FunctionListDispatch implements DispatchInterface
                 } elseif ($parameter->isOptional()) {
                     $newArguments[] = $parameter->getDefaultValue();
                 } else {
-                    throw new \Ndm\JsonRpc2\Exception_InvalidParams();
+                    throw new InvalidArgumentException("Required positional parameter was not provided: {$currentArg}");
                 }
             }
         }

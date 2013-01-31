@@ -1,12 +1,10 @@
 <?php
 
-namespace Ndm\JsonRpc2;
+namespace Ndm\JsonRpc2\Core;
 
 /**
  * Represents a batch response
  *
- * @author Nathan Muir
- * @version 2012-12-24
  */
 class BatchResponse implements ExportableInterface
 {
@@ -44,5 +42,24 @@ class BatchResponse implements ExportableInterface
     public function toJson()
     {
         return Json::encode($this->toJsonNatives());
+    }
+
+    /**
+     * Finds the response with the given ID
+     *
+     * Need to be careful that requests don't ever have a null-id
+     *
+     * @param mixed $id
+     *
+     * @return Response|ResponseError|null
+     */
+    public function getResponse($id)
+    {
+        foreach ($this->responses as $response) {
+            if ($response->id === $id) {
+                return $response;
+            }
+        }
+        return null;
     }
 }

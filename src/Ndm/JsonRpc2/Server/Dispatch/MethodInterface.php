@@ -6,8 +6,6 @@ namespace Ndm\JsonRpc2\Server\Dispatch;
 /**
  * An interface used by MapDispatch to interact with methods
  *
- * @author Nathan Muir
- * @version 2012-12-28
  */
 interface MethodInterface
 {
@@ -21,8 +19,8 @@ interface MethodInterface
     /**
      * @param array $arguments
      *
-     * @throws \Ndm\JsonRpc2\Exception_InvalidParams
-     * @throws \Ndm\JsonRpc2\Exception_InternalError
+     * @throws \Ndm\JsonRpc2\Server\Exception\InvalidArgumentException
+     * @throws \Ndm\JsonRpc2\Server\Exception\RuntimeException
      */
     public function invoke($arguments);
 }

@@ -1,17 +1,17 @@
 <?php
 
-namespace Ndm\JsonRpc2\Client;
+namespace Ndm\JsonRpc2\Core;
 
-use \Ndm\JsonRpc2\Json;
-use \Ndm\JsonRpc2\Exception;
-
+/**
+ *
+ */
 class ResponseParser
 {
 
     /**
      * @const int Limits the depth parsed by JSON response
      */
-    const JSON_DECODE_DEPTH_LIMIT = 24;
+    const JSON_DECODE_DEPTH_LIMIT = 512;
 
     /**
      * @var int
@@ -28,43 +28,44 @@ class ResponseParser
 
     /**
      * @param $response
-     * @return \Ndm\JsonRpc2\Response|\Ndm\JsonRpc2\ResponseError|null
+     *
+     * @throws Exception\InvalidResponseException
+     *
+     * @return Response|ResponseError|null
      */
     private function createFrom($response)
     {
         // response must be an object
         if (!is_object($response)) {
-            throw new Exception("", -1);
+            throw new Exception\InvalidResponseException("The response was not an object.");
         }
 
         // contain a jsonrpc member that is a string
         if (!isset($response->jsonrpc) || strcmp($response->jsonrpc, '2.0') !== 0) {
-            throw new Exception("", -1);
+            throw new Exception\InvalidResponseException("The response did not specify or had an expected value for required attribute 'jsonrpc'");
         }
         // must contain an ID - and it must be null, integer, float, or string
         if (!property_exists($response, 'id') || (!is_null($response->id) && !is_int($response->id) && !is_float(
             $response->id
         ) && !is_string($response->id))
         ) {
-            throw new Exception("", -1);
+            throw new Exception\InvalidResponseException("The response did not specify, or had an unexpected value for required attribute 'id'");
         }
         // detect whether response is a result or an error
         $hasResult = property_exists($response, 'result');
         $hasError = property_exists($response, 'error');
         // if missing, or containing both result and error - throw relevant exceptions
-        if ($hasResult === $hasError) {
-            if ($hasResult) {
-                throw new Exception("", -1);
-            } else {
-                throw new Exception("", -1);
-            }
+        if ($hasResult && $hasError) {
+            throw new Exception\InvalidResponseException("The response contains both 'result' and 'error' attributes. The response must contain only one of these attributes.");
+        } elseif (!$hasResult && !$hasError) {
+            throw new Exception\InvalidResponseException("The response did not contain either 'result' or 'error' attributes");
         } elseif ($hasResult) {
             // create a standard response using id & result
-            return new \Ndm\JsonRpc2\Response($response->id, $response->result);
+            return new Response($response->id, $response->result);
         } else {
             // the response error attribute must contain members "message" & "code"
             if (!property_exists($response->error, 'code') || !property_exists($response->error, 'message')) {
-                throw new Exception("", -1);
+                throw new Exception\InvalidResponseException("The response error attribute does not contain required attributes 'code' and 'message'");
             }
             // the response error may contain a data-member
             $data = null;
@@ -72,13 +73,17 @@ class ResponseParser
                 $data = $response->error->data;
             }
             // create a new error response
-            return new \Ndm\JsonRpc2\ResponseError($response->id, $response->error->code, $response->error->message, $data);
+            return new ResponseError($response->id, $response->error->code, $response->error->message, $data);
         }
     }
 
     /**
      * @param $json
-     * @return \Ndm\JsonRpc2\BatchResponse|\Ndm\JsonRpc2\Response|\Ndm\JsonRpc2\ResponseError|null
+     *
+     * @throws Exception\JsonParseException
+     * @throws Exception\InvalidResponseException
+     *
+     * @return BatchResponse|Response|ResponseError|null
      */
     public function parse($json)
     {
@@ -97,7 +102,7 @@ class ResponseParser
             foreach ($response as $singleResponse) {
                 $collection[] = $this->createFrom($singleResponse);
             }
-            return new \Ndm\JsonRpc2\BatchResponse($collection);
+            return new BatchResponse($collection);
         } else {
             // all other valid json is treated as a single request
             return $this->createFrom($response);

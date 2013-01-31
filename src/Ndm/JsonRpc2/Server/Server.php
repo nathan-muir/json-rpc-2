@@ -2,10 +2,7 @@
 
 namespace Ndm\JsonRpc2\Server;
 
-use \Ndm\JsonRpc2\Request;
-use \Ndm\JsonRpc2\Response;
-use \Ndm\JsonRpc2\BatchResponse;
-use \Ndm\JsonRpc2\ResponseError;
+use \Ndm\JsonRpc2\Core as Core;
 
 /**
  * This class brings together the transport and dispatch systems.
@@ -13,24 +10,22 @@ use \Ndm\JsonRpc2\ResponseError;
  * It performs the collation of responses/results in to a ResponseCollection,
  *  before allowing the transport to render it as required.
  *
- * @author Nathan Muir
- * @version 2012-12-24
  */
 class Server implements \Psr\Log\LoggerAwareInterface
 {
 
     /**
-     * @var \Ndm\JsonRpc2\Server\Transport\TransportInterface
+     * @var Transport\TransportInterface
      */
     private $transport;
 
     /**
-     * @var \Ndm\JsonRpc2\Server\Dispatch\DispatchInterface
+     * @var Dispatch\DispatchInterface
      */
     private $dispatch;
 
     /**
-     * @var \Ndm\JsonRpc2\Server\RequestParser
+     * @var Core\RequestParser
      */
     private $parser;
     /**
@@ -39,7 +34,7 @@ class Server implements \Psr\Log\LoggerAwareInterface
     private $logger;
 
     /**
-     * Constructs a new \Ndm\JsonRpc2\Server
+     * Constructs a new \Ndm\JsonRpc2\Server\Server
      *
      * @param Transport\TransportInterface $transport
      * @param Dispatch\DispatchInterface $dispatch
@@ -49,7 +44,7 @@ class Server implements \Psr\Log\LoggerAwareInterface
         $this->transport = $transport;
         $this->dispatch = $dispatch;
         $this->setLogger(new \Psr\Log\NullLogger());
-        $this->parser = new RequestParser();
+        $this->parser = new Core\RequestParser();
     }
 
     /**
@@ -66,24 +61,32 @@ class Server implements \Psr\Log\LoggerAwareInterface
     /**
      * Retrieves the request from the transport, obtains the response, and replies with the response.
      *
-     * @throws Transport\TransportException
+     * Transport layer will always be called - unless there is an exception on receive.
+     *
+     * Note: This WILL propagate transport layer exception on receive AND reply.
+     *  Correct handling code, in the case of 'HttpTransport' should respond with HTTP/1.0 400 Bad Request or similar
+     *
+     * @throws Exception\TransportException
+     *
      */
     public function process()
     {
         try {
-            // interrogate the transport for the request
-            $requestString = $this->transport->receive();
-            // instantiate the request as PHP objects from a string
-            $request = $this->parser->parse($requestString);
+            // obtain the parsed requests from the transport layer & parser
+            $request = $this->receive();
             // process the request, and obtain the response
             $response = $this->getResponse($request);
-        } catch (\Ndm\JsonRpc2\Exception $tex) {
-            $response = ResponseError::fromException(null, $tex);
-        } catch (\Exception $ex) {
-            $response = ResponseError::fromException(null, new \Ndm\JsonRpc2\Exception_InternalError());
+        } catch (Core\Exception\JsonParseException $jpe) {
+            // can be thrown by this->receive()
+            $this->logger->warning(
+                "Received a parse exception when decoding request.",
+                array('error_message' => $jpe->getMessage())
+            );
+            $response = Core\ResponseError::createParseError();
         }
-        // response is null - iff ?
+
         if ($response === null) {
+            // this is the case for notifications, or a batch of notifications
             $this->transport->reply('');
         } else {
             $this->transport->reply($response->toJson());
@@ -91,69 +94,110 @@ class Server implements \Psr\Log\LoggerAwareInterface
     }
 
     /**
+     * @throws Exception\TransportException
+     * @throws Core\Exception\JsonParseException
      *
+     * @return Core\Request|Core\Request[]|null
+     */
+    private function receive()
+    {
+        // interrogate the transport for the request
+        $requestString = $this->transport->receive();
+        // instantiate the request as PHP objects from a string
+        return $this->parser->parse($requestString);
+    }
+
+    /**
+     * Processes a request sequence, and returns an appropriate response.
      *
-     * @param $request \Ndm\JsonRpc2\Request|\Ndm\JsonRpc2\Request[]|null
-     * @return \Ndm\JsonRpc2\Response|\Ndm\JsonRpc2\ResponseError|\Ndm\JsonRpc2\BatchResponse|null
+     * @param $request Core\Request|Core\Request[]|null
+     * @return Core\Response|Core\ResponseError|Core\BatchResponse|null
      */
     private function getResponse($request)
     {
-        // if $request === null || $request instanceof \stdClass
-        if (!is_array($request)) {
-            return $this->processRequest($request);
-        } // else if it's an array of requests
-        else {
-            // process each request
-            $responses = array();
-            foreach ($request as $r) {
-                $response = $this->processRequest($r);
-                if ($response !== null) { // returns null for notifications
-                    $responses[] = $response;
-                }
-            }
-
-            if (empty($responses)) {
-                // rendering a null response - means all were notifications
+        // if there is no request parsed, it is invalid
+        if ($request === null) {
+            return Core\ResponseError::createInvalidRequest();
+        }
+        // if there's a single request, process accordingly
+        if ($request instanceof Core\Request) {
+            if ($request->isNotification()) {
+                // do not respond to notifications
+                $this->invokeIgnore($request);
                 return null;
             } else {
-                return new BatchResponse($responses);
+                return $this->invoke($request);
             }
+        }
+        // the request must be a batch
+        // process each request
+        $responses = array();
+        foreach ($request as $singleRequest) {
+            if ($singleRequest === null) {
+                // an invalid request in the batch request - add a response error to the batch response
+                $responses[] = Core\ResponseError::createInvalidRequest();
+            } else {
+                if ($singleRequest->isNotification()) {
+                    // do not add notifications to batch response
+                    $this->invokeIgnore($singleRequest);
+                } else {
+                    $responses[] = $this->invoke($singleRequest);
+                }
+            }
+        }
+        if (empty($responses)) {
+            // if all requests in the batch were notifications - no response
+            return null;
+        }
+        // otherwise, return a batch of responses
+        return new Core\BatchResponse($responses);
+    }
+
+    /**
+     * Invokes a request, clearing all exceptions, and not checking for a result
+     * @param \Ndm\JsonRpc2\Core\Request $request
+     */
+    private function invokeIgnore(Core\Request $request)
+    {
+        try {
+            $this->dispatch->invoke($request->method, $request->params);
+        } catch (Exception\RuntimeException $rx) {
+            /* intentionally empty */
         }
     }
 
     /**
-     * @param \Ndm\JsonRpc2\Request $request
-     * @return \Ndm\JsonRpc2\Response|\Ndm\JsonRpc2\ResponseError|null
+     * Invokes the request, tries to return the result, or a suitable response-error object
+     * @param Core\Request $request
+     * @return Core\Response|Core\ResponseError
      */
-    private function processRequest(Request $request = null)
+    private function invoke(Core\Request $request)
     {
-        if ($request === null) {
-            return ResponseError::fromException(null, new \Ndm\JsonRpc2\Exception_InvalidRequest());
-        }
-
-        if ($request->isNotification()) {
-            // invoke, and ignore all errors
-            try {
-                $this->dispatch->invoke($request->method, $request->params);
-            } catch (\Exception $ex) { /* intentionally empty */
+        try {
+            $result = $this->dispatch->invoke($request->method, $request->params);
+            $response = new Core\Response($request->id, $result);
+        } catch (Exception\MethodNotFoundException $mfx) {
+            // respond with appropriate error codes
+            $response = Core\ResponseError::createMethodNotFound($request->id);
+        } catch (Exception\InvalidArgumentException $iax) {
+            // respond with appropriate error codes
+            $response = Core\ResponseError::createInvalidParams($request->id);
+        } catch (Exception\ResponseExceptionInterface $rxi) {
+            // convert ResponseExceptionInterface => Response Error Object for any custom defined Exceptions sent from the Dispatch Layer
+            $response = new Core\ResponseError($request->id, $rxi->getErrorCode(), $rxi->getErrorMessage(
+            ), $rxi->getErrorData());
+        } catch (Exception\RuntimeException $rx) {
+            // dispatch will wrap all exceptions from invoke - in a runtime exception
+            // check to see if the exception implements interface for translation in to JSON-RPC Error Object
+            $rxi = $rx->getPrevious();
+            if ($rxi !== null && $rxi instanceof Exception\ResponseExceptionInterface) {
+                $response = new Core\ResponseError($request->id, $rxi->getErrorCode(), $rxi->getErrorMessage(
+                ), $rxi->getErrorData());
+            } else {
+                $response = Core\ResponseError::createInternalError($request->id);
             }
-            return null;
-        } else {
-            try {
-                $result = $this->dispatch->invoke($request->method, $request->params);
-                $response = new Response($request->id, $result);
-            } catch (\Ndm\JsonRpc2\Exception $ex) { //notation used for clarity
-                // Note: Any Exception wrapped in \Ndm\JsonRpc2\Exception will be exposed in the response
-                //  You can/should configure your Dispatch object to wrap exceptions that you want exposed, rather than
-                //  throw this type of exception in your application code.
-                $response = ResponseError::fromException($request->id, $ex);
-            } catch (\Exception $ex) {
-                // Note: Any Exception NOT wrapped in \Ndm\JsonRpc2\Exception will NOT be exposed in the response
-                // TODO: Check if this should use (-32603, "Internal Error") as per http://www.jsonrpc.org/specification#error_object
-                $response = new ResponseError($request->id, 500, "Error");
-            }
-            return $response;
         }
+        return $response;
     }
 
 }

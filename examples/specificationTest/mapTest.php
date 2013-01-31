@@ -1,4 +1,8 @@
 <?php
+namespace MyCompany\Package;
+
+use Ndm\JsonRpc2\Server as Server;
+
 /**
  * A simple test script which exercises the core server components, utilising the FunctionListDispatch, and TestTransport implementations.
  *
@@ -8,28 +12,19 @@
  * @version 2012-12-28
  */
 
-// include the JsonRpc library, and configure the include path
-// the src directory relative to the current
-$libPath = realpath(__DIR__ . '/../../src');
-// create a new include path, adding $libPath
-$newIncludePath = get_include_path() . PATH_SEPARATOR . $libPath;
-set_include_path($newIncludePath);
-// incldue the loader for the library
-require_once('JsonRpc/Loader.php');
-// register the PSR-0 compliant loader, using the src-directory
-\JsonRpc\Loader::register();
+require ('../../vendor/autoload.php');
 
 
 // include the functions necessary to exercise the specification
 require_once('mapMethods.php');
 
 // create a simple dispatch object from the function mapping
-$dispatch = new \JsonRpc\Dispatch\MapDispatch();
+$dispatch = new Server\Dispatch\MapDispatch();
 
-$specificationTestMethods = new SpecificationTestMethods();
+$specificationTestMethods = new \SpecificationTestMethods();
 
 $dispatch->registerAll(
-    \JsonRpc\Dispatch\ReflectionMethod::createFrom(
+    Server\Dispatch\ReflectionMethod::createFrom(
         $specificationTestMethods,
         true,
         function ($m) {
@@ -55,20 +50,19 @@ foreach ($specExamples as $specExample) {
     echo "Running Test {$currentTest}/{$testsTotal}... ";
     $currentTest++;
     // create a new transport
-    $transport = new \JsonRpc\Transport\TestTransport($specExample['request'], $specExample['expected_response']);
+    $transport = new Server\Transport\TestTransport($specExample['request']);
 
-    $server = new \JsonRpc\Server($transport, $dispatch);
+    $server = new Server\Server($transport, $dispatch);
 
     try {
         $server->process();
-    } catch (Exception $ex) {
-
+    } catch (\Exception $ex) {
         echo "Failed \"{$specExample['description']}\"", PHP_EOL;
         $testsFailed++;
         continue;
     }
 
-    if (!$transport->checkResponse()) {
+    if (strcmp($transport->getResponse(), $specExample['expected_response'])!=0) {
         echo "Failed \"{$specExample['description']}\" ", PHP_EOL;
         $testsFailed++;
         continue;

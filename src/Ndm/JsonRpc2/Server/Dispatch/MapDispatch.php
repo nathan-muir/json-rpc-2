@@ -2,13 +2,16 @@
 
 namespace Ndm\JsonRpc2\Server\Dispatch;
 
+use \Ndm\JsonRpc2\Server\Exception\MethodNotFoundException;
+use \Ndm\JsonRpc2\Server\Exception\UnauthorisedAccessException;
+use \Ndm\JsonRpc2\Server\Exception\RuntimeException;
+use \Ndm\JsonRpc2\Server\Exception\ConfigurationException;
+
 /**
  * Basic dispatch system, allows any method that implements MethodInterface to be registered.
  *
  * Could be improved by the use of generics, eg MapDispatch<T implements MethodInterface>, AuthorisationInterface<T>
  *
- * @author Nathan Muir
- * @version 2013-01-18
  */
 class MapDispatch implements DispatchInterface
 {
@@ -35,10 +38,9 @@ class MapDispatch implements DispatchInterface
      * @param string $alias
      * @param array $arguments
      *
-     * @throws \Ndm\JsonRpc2\Exception_InvalidParams
-     * @throws \Ndm\JsonRpc2\Exception_MethodNotFound
-     * @throws \Ndm\JsonRpc2\Exception_Unauthorised
-     * @throws \Ndm\JsonRpc2\Exception
+     * @throws MethodNotFoundException
+     * @throws UnauthorisedAccessException
+     * @throws RuntimeException
      *
      * @return mixed
      */
@@ -46,12 +48,12 @@ class MapDispatch implements DispatchInterface
     {
         // check that the method exists
         if (!isset($this->methods[$alias])) {
-            throw new \Ndm\JsonRpc2\Exception_MethodNotFound();
+            throw new MethodNotFoundException($alias);
         }
 
         // check authorisation if utilised
         if ($this->authorisation !== null && !$this->authorisation->isAuthorised($this->methods[$alias])) {
-            throw new \Ndm\JsonRpc2\Exception_Unauthorised();
+            throw new UnauthorisedAccessException($alias);
         }
         // all good, invoke the method
         return $this->methods[$alias]->invoke($arguments);

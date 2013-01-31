@@ -1,9 +1,18 @@
 <?php
-namespace Ndm\JsonRpc2;
+namespace Ndm\JsonRpc2\Core;
 
+/**
+ *
+ */
 class Json
 {
 
+    /**
+     * @param string $json
+     * @param int $depth
+     * @return mixed
+     * @throws Exception\JsonParseException
+     */
     public static function decode($json, $depth)
     {
         $data = json_decode($json, false, $depth);
@@ -35,12 +44,16 @@ class Json
             }
             // throw Parse Error
             //TODO decide whether to show json-parser error data or not
-            throw new \Ndm\JsonRpc2\Exception_ParseError( /* $error_text */);
+            throw new Exception\JsonParseException($error_text);
         }
 
         return $data;
     }
 
+    /**
+     * @param mixed $data
+     * @return string
+     */
     public static function encode($data)
     {
         return json_encode($data);
