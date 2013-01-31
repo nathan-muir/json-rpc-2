@@ -21,8 +21,6 @@ use Ndm\JsonRpc2\Server as Server;
 
 require ('vendor/autoload.php'); // require autoloader created by composer
 
-//END SKIP
-
 // init procedure -
 // 1. perform any external checks / tests on your transport layer (ie Authentication via OAuth)
 // 2. initialise a transport system to obtain the rpc calls from, and return results to
@@ -51,7 +49,7 @@ try {
 } catch (Server\Exception\TransportReceiveException $treceive){
     header('HTTP/1.0 400 Bad Request');
     exit;
-} catch (Server\Exception\TransportReceiveException $treply){
+} catch (Server\Exception\TransportReplyException $treply){
      header('HTTP/1.0 500 Internal Server Error');
      exit;
 }
