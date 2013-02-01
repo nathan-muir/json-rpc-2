@@ -1,9 +1,9 @@
 {
 
-    "name":"nathan-muir/jsonrpc2",
+    "name":"nathan-muir/json-rpc-2",
     "description":"JSON-RPC 2.0 Client & Server Implementation",
     "keywords":["json", "rpc", "json-rpc", "api"],
-    "homepage":"http://github.com/nathan-muir/jsonrpc",
+    "homepage":"http://github.com/nathan-muir/json-rpc-2",
     "type":"library",
     "license":"MIT",
     "authors":[
