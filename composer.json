@@ -1,0 +1,31 @@
+{
+
+    "name":"nathan-muir/jsonrpc2",
+    "description":"JSON-RPC 2.0 Client & Server Implementation",
+    "keywords":["json", "rpc", "json-rpc", "api"],
+    "homepage":"http://github.com/nathan-muir/jsonrpc",
+    "type":"library",
+    "license":"MIT",
+    "authors":[
+        {
+            "name":"Nathan Muir",
+            "email":"ndmuir@gmail.com"
+        }
+    ],
+    "require":{
+        "php":">=5.3.4",
+        "psr/log":"~1.0"
+    },
+    "require-dev":{
+        "phpunit/phpunit":"3.7.*"
+    },
+    "suggest":{
+        "monolog/monolog":"Logger that implements the psr/log interface"
+    },
+    "autoload":{
+        "psr-0":{
+            "Ndm\\JsonRpc2":["src/", "tests/src/"]
+        }
+    }
+
+}
