@@ -9,21 +9,77 @@ Admittedly, it's currently missing the necessary unit tests that will allow you 
 
 If you have written any modules that could be included, or would like to discuss the library- please do!
 
-How To Use
+How to Use Client - Basic
+---------------------
+```php
+<?php
+namespace MyCompany\Package;
+
+use \Ndm\JsonRpc2\Client\HttpClient;
+// use vendor autoload from composer
+require('vendor/autoload.php');
+
+// create a Client using the HttpTransport layer
+$client = HttpClient::connect('http://api.somesite.com/');
+// call a method, using named parameters
+$client->call('somemethod', array('abc'=>123));
+
+// alternatively, use the "native" interface
+$nativeClient = $client->getNativeClient();
+// however calls must use positional parameters
+$nativeClient->somemethod(123);
+
+
+```
+
+How To Use Server - Basic
 ----------------
 ```php
 <?php
 
-//SKIP if already using PSR-0 compliant autoloader
-// set your include path
-$newIncludePath = get_include_path() . PATH_SEPARATOR . 'path/to/src';
-set_include_path($newIncludePath);
 
-require("JsonRpc\Loader.php");
+namespace MyCompany\Package;
 
-\JsonRpc\Loader::register(); // adds a PSR-0 compliant loader, otherwise use classmap()
+use Ndm\JsonRpc2\HttpServer;
 
-//END SKIP
+require ('vendor/autoload.php'); // require autoloader created by composer
+
+$api = new SomeClass();
+$methods =  array (
+    'static_func'=> 'AnotherStatic::Func',
+    'global_func' => 'do_abc',
+    'some_func' => function($p) { return $p + 1; }
+);
+// register the server with a set of methods, either from an instance, a class with static methods, or as a map of 'callables'
+$server = HttpServer::register( $api, 'StaticClass',$methods);
+
+// process the request!
+try {
+    $server->process();
+} catch (Server\Exception\TransportReceiveException $treceive){
+    // exceptions on this layer - like not using HTTP-POST
+    header('HTTP/1.0 400 Bad Request');
+    exit;
+} catch (Server\Exception\TransportReplyException $treply){
+    header('HTTP/1.0 500 Internal Server Error');
+    exit;
+}
+
+```
+
+How To Use Server - Advanced
+----------------
+```php
+<?php
+
+
+namespace MyCompany\Package;
+
+use \Ndm\JsonRpc2\Server\Server;
+use \Ndm\JsonRpc2\Server\Transport\HttpTransport;
+use \Ndm\JsonRpc2\Server\Dispatch as Dispatch;
+
+require ('vendor/autoload.php'); // require autoloader created by composer
 
 // init procedure -
 // 1. perform any external checks / tests on your transport layer (ie Authentication via OAuth)
@@ -33,57 +89,71 @@ require("JsonRpc\Loader.php");
 // 5. create a server with the aforementioned dispatch & transport systems
 
 // the transport - a simple http wrapper
-$transport = new \JsonRpc\Transport\HttpTransport();
+$transport = new HttpTransport(HttpTransport::OPT_REQUIRE_HTTPS | HttpTransport::OPT_SEND_OUTPUT_HEADERS);
 
 
 $api = new SomeClass();
 
 //create a set of methods from the instance of SomeClass
-$methods = \JsonRpc\Dispatch\ReflectionMethod::createFrom($api);
+$methods = Dispatch\ReflectionMethod::createFrom($api);
 // dispatch system is responsible for invoking methods called by clients
-$dispatch = new \JsonRpc\Dispatch\MapDispatch();
+$dispatch = new Dispatch\MapDispatch();
 // register all the methods with the dispatch system
 $dispatch->registerAll($methods);
 
 // start the server
-$server = new \JsonRpc\Server($transport, $dispatch);
+$server = new Server($transport, $dispatch);
 // process the request!
-$server->process();
+try {
+    $server->process();
+} catch (Server\Exception\TransportReceiveException $treceive){
+    header('HTTP/1.0 400 Bad Request');
+    exit;
+} catch (Server\Exception\TransportReplyException $treply){
+     header('HTTP/1.0 500 Internal Server Error');
+     exit;
+}
 
 ```
 
 Todo
 -------------------
 
+Documentation:
+
+* Client Documentation
+
 Testing:
 
-* Unit testing for core functionality / verification that it meets required standards
-* Unit testing for JsonRpc\Transport\HttpTransport
-* Unit testing for JsonRpc\Dispatch\FunctionListDispatch
+* Unit Test
+
+    * Core\ResponseParser
+    * Server\Server [mock the 'receive' function, or wrap the combination of TransportInterface & RequestParser]
+    * Client\Client [mock the 'send' function, or wrap the combination of TransportInterface & ResponseParser]
+    * Client\BatchClient
+    * Server\Transport\HttpTransport
+    * Un-implemented Classes / Transports
 
 Implementation / Functionality:
 
-* Example implementation of caching reflections data
-* Implementation that uses Docblocks to provide type-checking, also adds hooks for parameter data checks
-* Alternate transports (eg, Mail)
-* Client Library
-* 'Proxy' method that uses client library to invoke remote function.
-* Implementation Example with OAuth Library
+* OAuth & Basic Auth Client Wrapper using HttpTransport
+* More comprehensive Dispatch system implementations (Caching, Docblock Parsing, Type Checking)
 
 
-Structure / Work-flow
+Server Structure / Work-flow
 -------------------
 
 Transport Lifecycle:
 
-1. Reads the transport layer / source and creates / returns a set of requests
-2. Receives a response- and then renders it.
+1. Reads the transport layer / source - provides string/text only
+2. Receives a text reply to render
 
 Server Lifecycle:
 
-1. Obtains Requests from Transport via 'getRequests'.
-2. Iterates through each requests, obtaining the result through Dispatch->invoke. Exceptions are caught and turned into ResponseError.
-3. Passes the result, back to the Transport to be rendered.
+1. Obtains Requests text from Transport via 'receive'.
+2. Uses \JsonRpc\RequestParser->parse() to parse in to objects
+3. Iterates through each requests, obtaining the result through Dispatch->invoke. Exceptions are caught and turned into ResponseError.
+4. Passes the result, back to the Transport to be rendered.
 
 Dispatch Lifecycle:
 
