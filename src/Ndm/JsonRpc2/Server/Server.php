@@ -38,13 +38,18 @@ class Server implements \Psr\Log\LoggerAwareInterface
      *
      * @param Transport\TransportInterface $transport
      * @param Dispatch\DispatchInterface $dispatch
+     * @param Core\RequestParser $parser
      */
-    public function __construct(Transport\TransportInterface $transport, Dispatch\DispatchInterface $dispatch)
+    public function __construct(Transport\TransportInterface $transport, Dispatch\DispatchInterface $dispatch, Core\RequestParser $parser = null)
     {
         $this->transport = $transport;
         $this->dispatch = $dispatch;
         $this->setLogger(new \Psr\Log\NullLogger());
-        $this->parser = new Core\RequestParser();
+
+        if ($parser === null){
+            $parser = new Core\RequestParser();
+        }
+        $this->parser = $parser;
     }
 
     /**
@@ -200,4 +205,17 @@ class Server implements \Psr\Log\LoggerAwareInterface
         return $response;
     }
 
+    /**
+     * @return Transport\TransportInterface
+     */
+    public function getTransport(){
+        return $this->transport;
+    }
+
+    /**
+     * @return Dispatch\DispatchInterface
+     */
+    public function getDispatch(){
+        return $this->dispatch;
+    }
 }
