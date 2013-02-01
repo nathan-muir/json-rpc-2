@@ -1,4 +1,4 @@
-JSON-RPC-V2-PHP
+json-rpc-2
 ===============
 
 This library is a highly flexible implementation of the JSON-RPC 2.0 specification written for PHP 5.3+, adhering to the PSR standards [where applicable].
