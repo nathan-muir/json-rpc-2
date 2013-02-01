@@ -9,7 +9,30 @@ Admittedly, it's currently missing the necessary unit tests that will allow you 
 
 If you have written any modules that could be included, or would like to discuss the library- please do!
 
-How To Use [Server]
+How to Use Client - Basic
+---------------------
+```php
+<?php
+namespace MyCompany\Package;
+
+use \Ndm\JsonRpc2\Client\HttpClient;
+// use vendor autoload from composer
+require('vendor/autoload.php');
+
+// create a Client using the HttpTransport layer
+$client = HttpClient::connect('http://api.somesite.com/');
+// call a method, using named parameters
+$client->call('somemethod', array('abc'=>123));
+
+// alternatively, use the "native" interface
+$nativeClient = $client->getNativeClient();
+// however calls must use positional parameters
+$nativeClient->somemethod(123);
+
+
+```
+
+How To Use Server - Basic
 ----------------
 ```php
 <?php
@@ -17,7 +40,44 @@ How To Use [Server]
 
 namespace MyCompany\Package;
 
-use Ndm\JsonRpc2\Server as Server;
+use Ndm\JsonRpc2\HttpServer;
+
+require ('vendor/autoload.php'); // require autoloader created by composer
+
+$api = new SomeClass();
+$methods =  array (
+    'static_func'=> 'AnotherStatic::Func',
+    'global_func' => 'do_abc',
+    'some_func' => function($p) { return $p + 1; }
+);
+// register the server with a set of methods, either from an instance, a class with static methods, or as a map of 'callables'
+$server = HttpServer::register( $api, 'StaticClass',$methods);
+
+// process the request!
+try {
+    $server->process();
+} catch (Server\Exception\TransportReceiveException $treceive){
+    // exceptions on this layer - like not using HTTP-POST
+    header('HTTP/1.0 400 Bad Request');
+    exit;
+} catch (Server\Exception\TransportReplyException $treply){
+    header('HTTP/1.0 500 Internal Server Error');
+    exit;
+}
+
+```
+
+How To Use Server - Advanced
+----------------
+```php
+<?php
+
+
+namespace MyCompany\Package;
+
+use \Ndm\JsonRpc2\Server\Server;
+use \Ndm\JsonRpc2\Server\Transport\HttpTransport;
+use \Ndm\JsonRpc2\Server\Dispatch as Dispatch;
 
 require ('vendor/autoload.php'); // require autoloader created by composer
 
@@ -29,20 +89,20 @@ require ('vendor/autoload.php'); // require autoloader created by composer
 // 5. create a server with the aforementioned dispatch & transport systems
 
 // the transport - a simple http wrapper
-$transport = new Server\Transport\HttpTransport();
+$transport = new HttpTransport(HttpTransport::OPT_REQUIRE_HTTPS | HttpTransport::OPT_SEND_OUTPUT_HEADERS);
 
 
 $api = new SomeClass();
 
 //create a set of methods from the instance of SomeClass
-$methods = Server\Dispatch\ReflectionMethod::createFrom($api);
+$methods = Dispatch\ReflectionMethod::createFrom($api);
 // dispatch system is responsible for invoking methods called by clients
-$dispatch = new Server\Dispatch\MapDispatch();
+$dispatch = new Dispatch\MapDispatch();
 // register all the methods with the dispatch system
 $dispatch->registerAll($methods);
 
 // start the server
-$server = new Server\Server($transport, $dispatch);
+$server = new Server($transport, $dispatch);
 // process the request!
 try {
     $server->process();
@@ -53,6 +113,7 @@ try {
      header('HTTP/1.0 500 Internal Server Error');
      exit;
 }
+
 ```
 
 Todo
@@ -75,10 +136,7 @@ Testing:
 
 Implementation / Functionality:
 
-* Client HttpTransport using 'stream_context_create'
 * OAuth & Basic Auth Client Wrapper using HttpTransport
-* Client\Client binding using __call
-* 'Shortcut' methods for Client & Server using inbuilt transports, eg. $client = HttpClient::connect('http://example.com/jsonrpc');, $server = HttpServer::register($object, 'Class', $methodMap);
 * More comprehensive Dispatch system implementations (Caching, Docblock Parsing, Type Checking)
 
 
