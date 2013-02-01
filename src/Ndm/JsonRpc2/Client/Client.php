@@ -5,8 +5,7 @@ namespace Ndm\JsonRpc2\Client;
 use \Ndm\JsonRpc2\Core as Core;
 
 /**
- *
- *
+ * A Client that handles single call's and notifications
  */
 class Client
 {
@@ -23,11 +22,22 @@ class Client
 
     /**
      * @param Transport\TransportInterface $transport
+     * @param Core\ResponseParser $parser
      */
-    public function __construct(Transport\TransportInterface $transport)
+    public function __construct(Transport\TransportInterface $transport, Core\ResponseParser $parser = null)
     {
         $this->transport = $transport;
-        $this->parser = new Core\ResponseParser();
+        if ($parser === null){
+            $parser = new Core\ResponseParser();
+        }
+        $this->parser = $parser;
+    }
+
+    /**
+     * @return NativeClient
+     */
+    public function getNativeClient(){
+        return new NativeClient($this);
     }
 
     /**
@@ -162,5 +172,12 @@ class Client
             mt_rand(0, 0xffff),
             mt_rand(0, 0xffff)
         );
+    }
+
+    /**
+     * @return Transport\TransportInterface
+     */
+    public function getTransport(){
+        return $this->transport;
     }
 }

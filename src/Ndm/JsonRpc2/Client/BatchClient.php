@@ -5,7 +5,11 @@ namespace Ndm\JsonRpc2\Client;
 use \Ndm\JsonRpc2\Core as Core;
 
 /**
+ * A client that groups calls and notifications into a batch request.
  *
+ * The batch is processed when 'BatchClient->batch()' is called.
+ *
+ * The "user" code is responsible for handling errors related to individual requests in the batch.
  *
  */
 class BatchClient
@@ -28,11 +32,15 @@ class BatchClient
 
     /**
      * @param Transport\TransportInterface $transport
+     * @param Core\ResponseParser $parser
      */
-    public function __construct(Transport\TransportInterface $transport)
+    public function __construct(Transport\TransportInterface $transport, Core\ResponseParser $parser = null)
     {
         $this->transport = $transport;
-        $this->parser = new Core\ResponseParser();
+        if ($parser === null){
+            $parser = new Core\ResponseParser();
+        }
+        $this->parser = $parser;
         $this->reset();
     }
 
@@ -100,12 +108,17 @@ class BatchClient
     }
 
     /**
-     * @return Core\BatchResponse|Core\Response|Core\ResponseError|null
+     * Sends the current batch request, and retrieves the batch response.
+     *
+     * Does not clear the request in the case of an exception.
+     *
+     * @throws Exception\ClientResponseException
      * @throws Exception\ClientException
+     * @return Core\BatchResponse|Core\Response|Core\ResponseError|null
      */
     public function batch()
     {
-        // check that atleast one call or notify has been added to the batch
+        // check that at least one call or notify has been added to the batch
         if (!$this->batch->hasRequests()) {
             throw new Exception\ClientException("Cannot submit batch without any requests");
         }
@@ -119,6 +132,8 @@ class BatchClient
             if (!$this->batch->isNotification()) {
                 throw new Exception\ClientException("No response was received for a batch request.");
             }
+            // successful response - reset the batch
+            $this->reset();
             return null;
         }
         // check for a response indicating an error
@@ -139,7 +154,9 @@ class BatchClient
 
         // should only be a batch response now
         assert('$response instanceof \\Ndm\\JsonRpc2\\Core\\BatchResponse');
-
+        // successful response - clear the batch request
+        $this->reset();
+        // return the response
         return $response;
     }
 
