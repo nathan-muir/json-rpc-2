@@ -122,7 +122,7 @@ class HttpTransport implements TransportInterface
      */
     private function isOptRequireHttps()
     {
-        return (bool)($this->options | self::OPT_REQUIRE_HTTPS);
+        return (bool)($this->options & self::OPT_REQUIRE_HTTPS);
     }
 
     /**
@@ -130,7 +130,7 @@ class HttpTransport implements TransportInterface
      */
     private function isOptRequireContentType()
     {
-        return (bool)($this->options | self::OPT_REQUIRE_CONTENT_TYPE);
+        return (bool)($this->options & self::OPT_REQUIRE_CONTENT_TYPE);
     }
 
     /**
@@ -138,6 +138,6 @@ class HttpTransport implements TransportInterface
      */
     private function isOptSendOutputHeaders()
     {
-        return (bool)($this->options | self::OPT_SEND_OUTPUT_HEADERS);
+        return (bool)($this->options & self::OPT_SEND_OUTPUT_HEADERS);
     }
 }
