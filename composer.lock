@@ -1,5 +1,5 @@
 {
-    "hash": "d672a98f08ae62a0364c6912362cd8e2",
+    "hash": "62645999858c7490407510ecbad269c7",
     "packages": [
         {
             "name": "psr/log",
@@ -22,7 +22,7 @@
                     "Psr\\Log\\": ""
                 }
             },
-            "notification-url": "http://packagist.org/downloads/",
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
