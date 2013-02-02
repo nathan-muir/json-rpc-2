@@ -41,6 +41,8 @@ How To Use Server - Basic
 namespace MyCompany\Package;
 
 use Ndm\JsonRpc2\HttpServer;
+use \Ndm\JsonRpc2\Server\Exception\TransportReceiveException;
+use \Ndm\JsonRpc2\Server\Exception\TransportReplyException;
 
 require ('vendor/autoload.php'); // require autoloader created by composer
 
@@ -56,11 +58,11 @@ $server = HttpServer::register( $api, 'StaticClass',$methods);
 // process the request!
 try {
     $server->process();
-} catch (Server\Exception\TransportReceiveException $treceive){
+} catch (TransportReceiveException $treceive){
     // exceptions on this layer - like not using HTTP-POST
     header('HTTP/1.0 400 Bad Request');
     exit;
-} catch (Server\Exception\TransportReplyException $treply){
+} catch (TransportReplyException $treply){
     header('HTTP/1.0 500 Internal Server Error');
     exit;
 }
@@ -76,6 +78,8 @@ How To Use Server - Advanced
 namespace MyCompany\Package;
 
 use \Ndm\JsonRpc2\Server\Server;
+use \Ndm\JsonRpc2\Server\Exception\TransportReceiveException;
+use \Ndm\JsonRpc2\Server\Exception\TransportReplyException;
 use \Ndm\JsonRpc2\Server\Transport\HttpTransport;
 use \Ndm\JsonRpc2\Server\Dispatch as Dispatch;
 
@@ -106,10 +110,10 @@ $server = new Server($transport, $dispatch);
 // process the request!
 try {
     $server->process();
-} catch (Server\Exception\TransportReceiveException $treceive){
+} catch (TransportReceiveException $treceive){
     header('HTTP/1.0 400 Bad Request');
     exit;
-} catch (Server\Exception\TransportReplyException $treply){
+} catch (TransportReplyException $treply){
      header('HTTP/1.0 500 Internal Server Error');
      exit;
 }
