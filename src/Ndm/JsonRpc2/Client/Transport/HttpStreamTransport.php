@@ -59,6 +59,7 @@ class HttpStreamTransport implements TransportInterface, LoggerAwareInterface {
      * @param string $request
      *
      * @throws \Ndm\JsonRpc2\Client\Exception\TransportException
+     * @throws \Ndm\JsonRpc2\Client\Exception\HttpTransportException
      *
      * @return string
      */
@@ -93,7 +94,7 @@ class HttpStreamTransport implements TransportInterface, LoggerAwareInterface {
         list ($successful, $statusCode, $statusMessage) = $this->checkStatus($headers['wrapper_data']);
         if (!$successful){
             $this->logger->error('Request was not successful',array('url'=>$this->url, 'context_options'=>$options, 'headers'=>$headers, 'content'=>$content));
-            throw new Exception\TransportException("Request failed, received: {$statusCode} {$statusMessage}");
+            throw new Exception\HttpTransportException($statusCode, $statusMessage, $content);
         }
         return $content;
     }
