@@ -84,16 +84,6 @@ class ReflectionMethod implements MethodInterface
     }
 
     /**
-     * @param object $object
-     * @param bool $loadParameters
-     * @return ReflectionMethod
-     */
-    public function createFromObject($object, $loadParameters = true)
-    {
-
-    }
-
-    /**
      * Returns the method alias utilised by json-rpc calls
      * @return string
      */
