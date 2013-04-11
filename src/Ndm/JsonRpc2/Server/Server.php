@@ -92,9 +92,12 @@ class Server implements \Psr\Log\LoggerAwareInterface
 
         if ($response === null) {
             // this is the case for notifications, or a batch of notifications
+            $this->logger->info("Response", array('json'=>null));
             $this->transport->reply('');
         } else {
-            $this->transport->reply($response->toJson());
+            $responseJson = $response->toJson();
+            $this->logger->info("Response", array('json'=>$responseJson));
+            $this->transport->reply($responseJson);
         }
     }
 
@@ -108,6 +111,8 @@ class Server implements \Psr\Log\LoggerAwareInterface
     {
         // interrogate the transport for the request
         $requestString = $this->transport->receive();
+        // log the request for debugging
+        $this->logger->info("Request", array('json'=>$requestString));
         // instantiate the request as PHP objects from a string
         return $this->parser->parse($requestString);
     }
@@ -192,6 +197,7 @@ class Server implements \Psr\Log\LoggerAwareInterface
             $response = new Core\ResponseError($request->id, $rxi->getErrorCode(), $rxi->getErrorMessage(
             ), $rxi->getErrorData());
         } catch (Exception\RuntimeException $rx) {
+            $this->logger->error("Caught exception from Dispatch::invoke()", array('request'=>$request, 'exception'=>$rx));
             // dispatch will wrap all exceptions from invoke - in a runtime exception
             // check to see if the exception implements interface for translation in to JSON-RPC Error Object
             $rxi = $rx->getPrevious();
