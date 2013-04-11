@@ -79,7 +79,8 @@ class HttpTransport implements TransportInterface
                 throw new TransportReplyException("Headers already sent");
             }
             header("Content-type: application/json");
-            header("Content-length: " . strlen($response));
+            //FIXME - Disabled content length as it is currently causing some issues
+            //header("Content-length: " . strlen($response));
         }
         echo $response;
     }
