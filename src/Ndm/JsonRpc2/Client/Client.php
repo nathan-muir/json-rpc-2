@@ -107,7 +107,9 @@ class Client
             throw $responseException;
         }
 
-        assert('$response instanceof \\Ndm\\JsonRpc2\\Core\\Response');
+        if (!($response instanceof Core\Response)) {
+            throw new Exception\ClientResponseException(500, "invalid response object");
+        }
 
         // if the response id doesn't match
         if ($response->id !== $id) {

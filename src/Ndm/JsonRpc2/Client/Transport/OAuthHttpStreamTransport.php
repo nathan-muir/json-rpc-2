@@ -57,7 +57,7 @@ class OAuthHttpStreamTransport implements TransportInterface, LoggerAwareInterfa
      */
     public function __construct($url, OAuth\Consumer $consumer, OAuth\Token $token = null, $realm=""){
         // check that the URL is valid
-        if (!filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED)){
+        if (!filter_var($url, FILTER_VALIDATE_URL)){
             throw new Exception\TransportException("The URL provided is not valid. Must be in the format (http[s]://domain[/path/][file])");
         }
         // check that they are using HTTP or HTTPS
